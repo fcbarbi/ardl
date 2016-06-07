@@ -1,0 +1,250 @@
+---
+title: "Estimating ARDL models in R"
+subtitle: "Notes on the use of the `R` package `ardl` v.0.0.4"
+author: "Fernando C. Barbi^[fcbarbi@gmail.com]"
+date: "June 07, 2016"
+output: pdf_document
+documentclass: article
+fontsize: 11pt
+keep_tex: yes
+citation_package: bibtext
+bibliography: ardl.bib
+vignette: |
+  %\VignetteIndexEntry{Vignette Title} %\VignetteEngine{knitr::rmarkdown} %\VignetteEncoding{UTF-8}
+---
+
+***
+
+\begin{abstract}
+
+The `ardl` (Auto Regressive Distributed Lag) package estimates time series dynamic models with lagged dependent variables and lagged regressors. It is specially useful to study time relations when the structure of the models are not imposed \textit{a priori} by theory. The flexibility offered by a variable number of lags and the possibilty to model in levels lead to models highly adjusted to data. The current version of this package allows for unrestricted estimations of constant parameter models for short and long-term relations. Future versions will allow for restricted estimations (see section \textit{Future Developments} for other features under work).  
+
+\end{abstract}
+
+***
+
+## Introduction
+
+An univariate model (single equation) is estimated with regressors in levels using the ARDL framework presented in @Pesaran1999 regardless of whether the regressors are stationary, I(0), or have a unit root, I(1). A nice introduction to the subject is @Hassler2005. 
+
+This package relies on `dynlm` for estimation so only *unrestricted coefficient models* can be estimated, the advantage is that this routine is based on the robust `QR` decomposition that behaves well even in case of strong collinearity among regressors.
+
+The package supports the automatic identification of the best model according to different selection criteria (BIC, AIC, R2 and LL). It also provides tools to visualize the cointegration (long-term) relation and to test it using the bounds testing procedure presented in @Pesaran2001. 
+
+## Some ARDL theory  
+
+Assume the model for $y_t$ has no trend and $\mathbf{x_t}$ is a set of *weakly exogenous* $K$ regressors 
+
+\begin{equation*}
+y_t = \alpha + \phi y_{t-1} + \beta' \mathbf{x}_t + \psi d_t + u_t
+\end{equation*}
+where $d_t$ stands for the the intervention variables (dummies) that are not to be lagged. 
+
+We also assume some components of $\mathbf{x}_t$ to be unit-root, I(1), processes as in 
+\begin{equation*}
+x_t = x_{t-1} + \varepsilon_t
+\end{equation*}
+
+The regressors $\mathbf{x}_t$ may be I(0) or I(1) so we start by assuming the existence of a long-term (**cointegrating**) relation between I(1) regressors so that by combining these terms we obtain a stationary, I(0), term. 
+
+@Pesaran1999 show that the least square (LS) estimation of this model provides consistent estimators with *super-consistence* properties for the long-term coefficients: these estimators  converge to the true parameter values at speed proportional to $T$, faster than the usual $\sqrt{T}$ convergence of LS estimators. This is particularly interesting when working with small samples. The long-term coefficients $\hat{\Theta}$ are a function of the estimated short-term coefficients $\hat{\beta}$ and $\hat{\phi}$ as given by 
+
+\begin{equation*}
+\hat{\Theta} = g(\hat{\beta},\hat{\phi}) = \frac{\hat{\beta}}{1-\hat{\phi}} = g(\hat{\Psi}) 
+\end{equation*}
+
+The variance of $\Theta$ can be approximated by the delta method 
+
+\begin{equation*}
+V(\hat{\Theta}) = \left( \frac{\partial g(\hat{\Psi})}{\partial\hat{\Psi}} \right)' V(\hat{\Psi}) \left( \frac{\partial g(\hat{\Psi})}{\partial\hat{\Psi}} \right)
+\end{equation*}
+
+After some algebra we get the result used in the code to get the variance of each of the core components of the specification
+
+\begin{equation*}
+ V(\hat{\Theta}) = \frac{\hat{\sigma}_u^2}{(1-\hat{\phi})^2} (1,\hat{\Theta}) \frac{1}{D_T} \left[ 
+ \begin{array}{cc} \sum (y_{t-1}-\overline{y})^2 & -\sum (y_{t-1}-\overline{y})(x_{t}-\overline{x}) \\
+ -\sum (y_{t-1}-\overline{y})(x_{t}-\overline{x}) & \sum (x_{t}-\overline{x})^2 \end{array}
+ \right] \left( \begin{array}{c} 1 \\ \hat{\Theta} \end{array} \right)
+\end{equation*}
+This result is eq.2.20 in @Pesaran2001. The term $\overline{x}$ is the sample mean and $D_T$ is defined as
+\begin{equation*}
+D_T= \left[ \sum (x_{t}-\overline{x})^2 \right] \left[\sum (y_{t-1}-\overline{y})^2 \right] - \left[ \sum (y_{t-1}-\overline{y})(x_{t}-\overline{x}) \right]^2
+\end{equation*}
+
+The cointegration term is stationary, $(y_t - \hat{\Theta} x_t) \sim I(0)$. Once it is calculated you can check the significance of each individual estimator with a t-test. The results should be confirmed by a Wald test, presented in @Pesaran2001 as the "bounds test", to compare two specifications, one with the regressors in levels and the other without them. In the model 
+\begin{equation*}
+d(y_t) = \alpha + \sum_{j=0}^{m} \pi_j \left( \begin{array}{c}y_{t-1-j}\\x_{t-j}\end{array} \right) +  \sum_{i=0}^{p} \phi_i \left( \begin{array}{c} d(y_{t-i})\\d(x_{t-i}) \end{array} \right) + \varepsilon_t
+\end{equation*}
+where $d()$ is the first difference operator, the null hypothesis of the bounds test is that $\pi_0=\pi_1=\dots=\pi_m=0$, $\pi_t=(\pi_t^y,\pi_t^x)$ and $\phi_t=(\phi_t^y,\phi_t^x)$.
+
+## Package Overview 
+
+This package has essentially 4 functions in addition to those usually available to `lm` models:  
+
+1. `ardl()` is the core function that relies on package `dynlm` to estimate the dynamic models. It can be called with a `quiet=TRUE` option to operate in silence so it can be called in other tools.
+
+2. `auto.ardl()` uses `ardl()` to find the best specification. It can be called with `verbose=TRUE` to show all the models under test.
+
+3. `coint()` prints the two sets of coefficients: long-run (LR) and short-run (SR). It can generate output directly to files in `.txt` or `.tex` formats.
+
+4. `bounds.test()` tests the existence of a long-run relationship in models with I(0) or I(1) regressors using @Pesaran2001 critical values.
+
+Finally, note that `print()` and `summary()` work as for any linear model (`lm`). 
+
+## Some Conventions 
+
+The functions `ardl()` and `auto.ardl()` receive the "canonical" equation in the form `y ~ x1+x2|x3` that means that `y` depends on a variable number of lags of `x1` and `x2` while `x3` must be taken as is, this term is generallay a dummy so it should not be differenced or lagged, hence its name "fixed". Note the `|` character that is used to divide the terms, you can certainly have more than one fixed term as in `y ~ x1+x2|x3+x4`.  
+
+Assuming `case=5` the model is estimated with an unrestricted intercept and an unrestricted trend with lags for `y = 1` and `x = c(1,2)` the "expanded" equation is therefore `y ~ +1+trend(y) + L(y,1) + x1+L(x1,1)+x2+L(x2,1)+L(x2,2) + x3`. This format is convenient for calling the `dynlm()` to do the actual estimation. 
+
+The case number informs on the existence of an intercept and a trend in the model following the convention of @Pesaran2001:
+
+Case Number | Description
+------------|------------------------------------------------------------
+1           | no intercept, no trend 
+2           | restricted intercert and no trend (not supported)
+3           | unrestricted intercert and no trend
+4           | unrestricted intercept and restricted trend (not supported)
+5           | unrestricted intercept and unrestricted trend
+
+## Examples
+```{r eval=TRUE, results="hide"}
+#devtools::install_github("fcbarbi/ardl")
+require(ardl)
+data(br_month)
+```
+An ARDL(2,1,1) model structure for the monetary policy rate `mpr` with two regressors: prices `cpi` and the exchange rate `reer` with at most one lag each as in
+\begin{equation*}
+i_t = \alpha + \phi_1 i_{t-1} + \phi_2 i_{t-2} + \beta_1 \pi_t + \beta_2 \pi_{t-1} + \beta_3 s_t + \beta_4 s_{t-1} + \varepsilon_t
+\end{equation*}
+where $i_t$ is the interest rate, $\pi_t$ is inflation and $s_t$ is the exchange rate. 
+
+### Function: ardl()
+This model is estimated with monthly data from Brazil with the command
+```{r eval=TRUE}
+m1 <- ardl( mpr~cpi+reer | d_lula, data=br_month, 
+            ylag=2, xlag=c(1,1), case=3 )
+```
+
+Note that `ardl()` tests for the existence of `NA` in data and automatically adjusts the top and bottom of the dataset. You can check this by including `prod` in the model, this data is only available from January 2003 up to December 2014: 
+
+```{r eval=FALSE}
+m1 <- ardl( mpr~cpi+prod+reer | d_lula, data=br_month, 
+            ylag=2, xlag=c(1,1,1), case=3 )
+
+Dataset adjustment to the common sample of all regressors:
+Original dataset from  2001(1) to 2015(2) 
+Adjusted dataset from  2003(1) to 2014(12) 
+(...)
+```
+
+If the `NA` is not in the extremes but inside the series the routine will warn you but will carry on with some potential adverse effects further down the road. We recommend that you treat the dataset (by interpolating or inputing the missing observations)  before running new estimations. 
+
+The "fixed term" used in this model is a dummy: `d_lula` is used to control for the first year in power of President Lula in 2003, when interest rates were increased to prevent a significant devaluation of the local currency. This can be checked in the data:
+
+```{r  eval=TRUE,echo=FALSE}
+plot( br_month[,c("mpr","cpi","reer")] )
+```
+
+Note that `reer`, the real effective exchange rate, and the other regressors `cpi` and `mpr` look like unit-root processes. A more rigorous approach to testing can be taken by using function `urTable()` from package `macroR` to test for unit roots with the command 
+
+```{r  eval=FALSE,echo=TRUE}
+df <- data.frame( br_month$cpi,br_month$mpr, br_month$reer )
+macroR::urTable(df, file="urtests.tex", format="latex")
+```
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrr}
+  \hline
+ & adf(0) & pp(0) & kpss(0) & adf(1) & pp(1) & kpss(1) \\ 
+  \hline
+  br\_month.cpi & 0.12 & 0.47 & 0.01 & 0.01 & 0.01 & 0.10 \\ 
+  br\_month.mpr & 0.20 & 0.40 & 0.01 & 0.01 & 0.01 & 0.10 \\ 
+  br\_month.reer & 0.30 & 0.41 & 0.01 & 0.01 & 0.01 & 0.10 \\ 
+   \hline
+\end{tabular}\caption{Unit Root Tests} 
+\begin{tabular}{l}
+\\
+Results are test p-values for series in levels (0) or in first difference (1).\\
+adf is Augmented Dickey-Fuller Test with H0:series has unit root.\\           
+pp is Phillips-Perron Unit Root Test with H0:series has unit root.\\      
+kpss is KPSS Test for Level Stationarity with H0:series is stationary.
+\end{tabular}
+\end{table}
+
+The ARDL methodology allows the estimation in levels of a common long-term relation between the regressors and the explained variable. In function `coint()` a stationary specification is tested after controlling for the lag of the long-term relation, expressed as `L(coint)`.   
+
+To get model details on the coefficients and the usual tests use the traditional `summary()` function
+```{r eval=TRUE}
+summary(m1)
+```
+
+### Function: coint()
+To visualize the long-term coefficients use the function `coint()`
+```{r eval=TRUE}
+coint(m1)
+```
+
+Note that the SR coefficients (second panel) come from a model with regressors in first difference, certainly stationary.
+
+The results can also be displayed in \LaTeX format and saved to a file with the options `type` and `file`
+```{r eval=FALSE}
+coint( m1, type="tex", file="m1.tex" )
+```
+
+### Function: bounds.test()
+We recommend that in addition to each individual t-tests for the LR coefficients you test the existence of the cointegration relation with the bounds test. The bounds test checks the existence of a long-term relation with critical values for I(0) and I(1) regressors.
+
+```{r eval=TRUE}
+bounds.test(m1)
+```
+
+### Function: auto.ardl()
+The automated model selection process involves choosing the maximum lag for each regressor. If none is informed 1 is assumed. 
+```{r eval=TRUE}
+m2 <- auto.ardl( mpr~cpi+prod+reer|d_lula, data=br_month, 
+                 ymax=2, xmax=c(2,2,2), ic="bic" )
+summary(m2)
+```
+
+The selection process involves estimating the best fit for each regressor in the order they are included in the canonical equation. The algorithm will first adjust the best lag for the dependent variable and than proceed to test each regressor following the maximum lags dictated by the `xmax=c(2,0,1)` command that means "test up to the second lag of `cpi`, do not lag `prod` and test only one lag for `reer`". By choosing `verbose=TRUE` you can follow all the tests.
+
+```{r eval=TRUE}
+m3 <- auto.ardl( mpr~cpi+reer, data=br_month, ymax=2, 
+                 xmax=c(1,1), verbose=TRUE, case=1 )
+```
+
+The selection algorithm relies on the user to choose the case to test. By default the choice is `case=3` (intercept only) but you can specify other cases to test.
+
+## Notes on the Algorithm 
+ 
+The function `ardl()` starts by checking the top and bottom of the dataframe for `NA` and exlcude the corresponding rows so that all columns have data. In case there are `NA's` inside the series a warning is emitted. The user should decide on the best way to complete the missing data. 
+
+The next step is to build the expanded formula before calling `dynlm()`. The parsed expression is divided in three terms: `lhs` (left hand side) with the dependent variable, `core` with the variable term(s) and `suffix` with the fixed term(s). To map the coefficients of the canonical form into the expanded form we use the `coeff_map` vector: the content of this vector is `"0"` for the lhs (y) and `"1"` for the first element of `rhs` and so on until the `K+KX` term is reached, `K` is the number of variable terms and `KX` is the number of fixed terms. 
+
+For example: the canononical form 
+`y~x1+x2|x3` with `case=3`, `ylag=2` and `xlag=(3,1)` generates the extended form `y~+1+L(y,1)+L(y,2)+x1+L(x1,1)+L(x1,2)+L(x1,3)+x2+L(x2,1)+x3` with mapping 
+`coeff_map == "-1" "0" "0" "1" "1" "1" "1" "2" "2" "2" "3"`.
+Note that Intercept and Trend are marked with "-1" as a placeholder only. 
+
+Once this estimation is done, the `dynlm` object is extended with fields for the long-run (LR) and short-run (SR) coefficients, the case number and the cointegration relation. The LR coefficients are calculated as indicated by @Pesaran1999 and a cointegrating relation is built to reestimate the model, now controlling for the long-term, so that the new coefficients are the SR coefficients. 
+
+## Future Developments
+
+1. Support for restricted coefficient estimation (ML) and cases 2 and 4.
+
+2. Support `plot()` showing actual and fitted data, residual and the cointegration relation.
+
+3. Function `coint()` should present test results for residual autoregression and heterocedasticity (and R2, F, etc...).
+
+4. Function `auto.ardl()` should adjust sample size to the same for all model comparisons. 
+
+5. Support to 2SLS estimation with instruments, for ex. `ardl( y ~ x1 + x2, instrument=list(x1,x3,x4) )` where `x3` and `x4` are instruments for `x2`.
+
+6. Support to structural models with time varying parameters (TVP) implemented by Kalman Filter.
+
+## Bibliography 
+
+

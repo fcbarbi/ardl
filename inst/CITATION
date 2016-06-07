@@ -1,0 +1,20 @@
+c(
+  bibentry(
+    bibtype = "Manual",
+    title = "{ardl}: Auto Regressive Distributed Lag time series model.",
+    author = "Barbi, F.C.",
+    year = sub("-.*", "", meta$Date),
+    note = sprintf("R package version %s", meta$Version),
+    url = "http://cran.r-project.org/package=tsworkflow",
+    key = "ardl"
+  )
+,
+bibentry(
+    bibtype = "Article",
+    title = "Estimating ARDL models in R",
+    author = "Barbi, F.C.",
+    journal = "Submitted",
+    year = sub("-.*", "", meta$Date),
+    key = "ardl_article"
+  )
+)

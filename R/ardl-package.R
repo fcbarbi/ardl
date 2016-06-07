@@ -1,0 +1,18 @@
+#' 
+#' @aliases ardl-package
+#' @title ardl-package
+#' @description Auto Regressive Distributed Lag (ARDL) for time series is a package to estimate dynamic models with lagged regressors and lagged dependent variable. 
+#' 
+#' @details A single equation (univariate) model is estimated with the ARDL framework presented by \cite{Pesaran1999} and \cite{Pesaran2001}.
+#' This version also supports automatic identification of the best model according to different selection criteria (BIC; AIC, R2 and LL). 
+#' It also provides tools to visualize the cointegration (long-term) relation and to test it using the bounds test procedure.
+#' 
+#'  \code{\link{ardl}} is the core function that relies on package \code{dynlm} to estimate the dynamic models. 
+#'  \code{\link{auto.ardl}} uses \code{\link{ardl}} to find the best specification.
+#'  \code{\link{coint}} presents the two sets of coefficients: long-run (LR) and short-run (SR).
+#'  \code{\link{bounds.test}} tests the existence of a long-run relationship with I(0) or I(1) regressors.
+#'  Note that \code{print} and \code{summary} work as for any linear model. 
+#'  
+
+"_PACKAGE"
+#> [1] "_PACKAGE"
