@@ -50,12 +50,13 @@ We can reparametrize equation \ref{levelform} by replacing $y_t$ by $y_{t-1}+\De
 \end{equation*}
 rearranging the level terms together we get 
 \begin{equation}\label{diffform}
-\Delta y_t = \beta_1 \Delta x_t -(1-\phi)(y_{t-1}-\frac{\alpha}{1-\phi}-\frac{\beta_1+\beta_2}{1-\phi}) + \psi d_t + u_t
+\Delta y_t = \beta_1 \Delta x_t -(1-\phi)(y_{t-1}-\frac{\alpha}{1-\phi}-\frac{\beta_1+\beta_2}{1-\phi}x_{t-1}) + \psi d_t + u_t
 \end{equation}
-We can think of the term $(1-\phi)$ as the "speed of convergence" to the long-term equilibrium represented by the EC term $y_{t-1}-\alpha/(1-\phi)-(\beta_1+\beta_2)/(1-\phi)$. Equations \ref{levelform} and \ref{diffform} are essentially the same so the next step is to define the best way to estimate them. 
+We can think of the term $(1-\phi)$ as the "speed of convergence" to the long-term equilibrium represented by the EC term $y_{t-1}-\alpha/(1-\phi)-(\beta_1+\beta_2)x_{t-1}/(1-\phi)$. Equations \ref{levelform} and \ref{diffform} are essentially the same so the next step is to define the best way to estimate them. 
 
-@Pesaran1999 show that the least square (LS) estimation of this model provides consistent estimators with *super-consistence* properties for the long-term coefficients: these estimators  converge to the true parameter values at speed proportional to $T$, faster than the usual $\sqrt{T}$ convergence of LS estimators. This is particularly interesting when working with small samples. The long-term coefficients $\hat{\Theta}$ are a function of the estimated short-term coefficients $\hat{\beta}$ and $\hat{\phi}$ as given by 
+Note: The *weakly exogenous* condition on $x_t$ regressors is that $\Delta x_t$ are not correlated to the EC term, that could be tested by checking that $H0:\gamma=0$ in $\Delta x_t = \gamma (y_{t-1}-\alpha/(1-\phi)-(\beta_1+\beta_2)x_{t-1}/(1-\phi)) + \eta_t$. The usual criticism to the ARDL approach is that when this condition does not hold a multivariate model (VEC) allowing for this feedback should be used instead. Needless to say that as $y_t$ must be part of the EC term, the $x_t$ regressors should not cointegrate among themselves.
 
+@Pesaran1999 show that the least square (LS) estimation of this model provides consistent estimators with *super-consistence* properties for the long-term coefficients: these estimators  converge to the true parameter values at speed proportional to $T$, faster than the usual $\sqrt{T}$ convergence of LS estimators. This is particularly interesting when working with small samples. The long-term coefficients $\hat{\Theta}$ are a function of the estimated short-term coefficients $\hat{\beta}$ and $\hat{\phi}$
 \begin{equation*}
 \hat{\Theta} = g(\hat{\beta},\hat{\phi}) = \frac{\hat{\beta}}{1-\hat{\phi}} = g(\hat{\Psi}) 
 \end{equation*}
@@ -65,9 +66,7 @@ The variance of $\Theta$ can be approximated by the delta method
 \begin{equation*}
 V(\hat{\Theta}) = \left( \frac{\partial g(\hat{\Psi})}{\partial\hat{\Psi}} \right)' V(\hat{\Psi}) \left( \frac{\partial g(\hat{\Psi})}{\partial\hat{\Psi}} \right)
 \end{equation*}
-
 After some algebra we get the result used in the code to get the variance of each of the core components of the specification
-
 \begin{equation*}
  V(\hat{\Theta}) = \frac{\hat{\sigma}_u^2}{(1-\hat{\phi})^2} (1,\hat{\Theta}) \frac{1}{D_T} \left[ 
  \begin{array}{cc} \sum (y_{t-1}-\overline{y})^2 & -\sum (y_{t-1}-\overline{y})(x_{t}-\overline{x}) \\
@@ -123,7 +122,7 @@ The case number informs on the existence of an intercept and a trend in the mode
 
 ## Examples
 Installation must be done only once using the `github` repository. For this you must have the package `devtools` already installed. The necessary commands are commented below 
-```{r eval=TRUE, results="hide"}
+```{r eval=TRUE, results="hide",error=FALSE,warnin=FALSE,message=FALSE}
 #install.packages("devtools")
 #devtools::install_github("fcbarbi/ardl")
 require(ardl)
