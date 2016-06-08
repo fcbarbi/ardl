@@ -35,17 +35,24 @@ The package supports the automatic identification of the best model according to
 
 Assume the model for $y_t$ has no trend and $\mathbf{x_t}$ is a set of *weakly exogenous* $K$ regressors 
 
+\begin{equation}\label{levelform}
+y_t = \alpha + \phi y_{t-1} + \beta_1 \mathbf{x}_t + \beta_2 \mathbf{x}_{t-1} +\psi d_t + u_t
+\end{equation}
+where $d_t$ represent the intervention variables ("dummies") that are not to be lagged nor differenced. We assume that some components of $\mathbf{x}_t$ are unit-root, I(1), processes as in 
 \begin{equation*}
-y_t = \alpha + \phi y_{t-1} + \beta' \mathbf{x}_t + \psi d_t + u_t
+x_t = x_{t-1} + \varepsilon_t^x
 \end{equation*}
-where $d_t$ stands for the the intervention variables (dummies) that are not to be lagged. 
+The regressors $\mathbf{x}_t$ may be I(0) or I(1). We assume the existence of a long-term stationary ("cointegrating") relation between the regressors and the dependent variable that we later test using two different approaches (t-test and F-test). 
 
-We also assume some components of $\mathbf{x}_t$ to be unit-root, I(1), processes as in 
+We can reparametrize equation \ref{levelform} by replacing $y_t$ by $y_{t-1}+\Delta y_t$ and $x_t$ by $x_{t-1}+\Delta x_t$ so that we obtain an equation in differences with an Error Correction (EC) term in levels  
 \begin{equation*}
-x_t = x_{t-1} + \varepsilon_t
+\Delta y_t = \alpha + \beta_1 \Delta x_t - (1-\phi) y_{t-1} + (\beta_1 + \beta_2) x_{t-1} + \psi d_t + u_t
 \end{equation*}
-
-The regressors $\mathbf{x}_t$ may be I(0) or I(1) so we start by assuming the existence of a long-term (**cointegrating**) relation between I(1) regressors so that by combining these terms we obtain a stationary, I(0), term. 
+rearranging the level terms together we get 
+\begin{equation}\label{diffform}
+\Delta y_t = \beta_1 \Delta x_t -(1-\phi)(y_{t-1}-\frac{\alpha}{1-\phi}-\frac{\beta_1+\beta_2}{1-\phi}) + \psi d_t + u_t
+\end{equation}
+We can think of the term $(1-\phi)$ as the "speed of convergence" to the long-term equilibrium represented by the EC term $y_{t-1}-\alpha/(1-\phi)-(\beta_1+\beta_2)/(1-\phi)$. Equations \ref{levelform} and \ref{diffform} are essentially the same so the next step is to define the best way to estimate them. 
 
 @Pesaran1999 show that the least square (LS) estimation of this model provides consistent estimators with *super-consistence* properties for the long-term coefficients: these estimators  converge to the true parameter values at speed proportional to $T$, faster than the usual $\sqrt{T}$ convergence of LS estimators. This is particularly interesting when working with small samples. The long-term coefficients $\hat{\Theta}$ are a function of the estimated short-term coefficients $\hat{\beta}$ and $\hat{\phi}$ as given by 
 
@@ -99,17 +106,25 @@ The functions `ardl()` and `auto.ardl()` receive the "canonical" equation in the
 Assuming `case=5` the model is estimated with an unrestricted intercept and an unrestricted trend with lags for `y = 1` and `x = c(1,2)` the "expanded" equation is therefore `y ~ +1+trend(y) + L(y,1) + x1+L(x1,1)+x2+L(x2,1)+L(x2,2) + x3`. This format is convenient for calling the `dynlm()` to do the actual estimation. 
 
 The case number informs on the existence of an intercept and a trend in the model following the convention of @Pesaran2001:
-
-Case Number | Description
-------------|------------------------------------------------------------
-1           | no intercept, no trend 
-2           | restricted intercert and no trend (not supported)
-3           | unrestricted intercert and no trend
-4           | unrestricted intercept and restricted trend (not supported)
-5           | unrestricted intercept and unrestricted trend
+\begin{table}[h]
+\centering
+\begin{tabular}{cl}
+  \hline
+ Case Number & Model Structure \\ 
+  \hline
+ 1 & no intercept, no trend\\ 
+ 2 & restricted intercert and no trend (not supported)\\
+ 3 & unrestricted intercert and no trend\\
+ 4 & unrestricted intercept and restricted trend (not supported)\\
+ 5 & unrestricted intercept and unrestricted trend \\
+\hline
+\end{tabular}\caption{Case corresponding structure} 
+\end{table}
 
 ## Examples
+Installation must be done only once using the `github` repository. For this you must have the package `devtools` already installed. The necessary commands are commented below 
 ```{r eval=TRUE, results="hide"}
+#install.packages("devtools")
 #devtools::install_github("fcbarbi/ardl")
 require(ardl)
 data(br_month)
