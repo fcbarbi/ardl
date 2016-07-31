@@ -6,7 +6,7 @@
 #' @details This function selects the models to test, the actual estimation is done by \code{ardl()}.
 #' 
 #' @param formula Formula as in \code{ y ~ x1 + x2 | x3 } where \code{x1} and \code{x2} are tested for different lags up to \code{xmax}. Note that \code{x3} is "fixed" so it is not lagged.  
-#' @param data A dataframe with the zoo time series data in the columns.
+#' @param data A dataframe or time referenced object with data in columns.
 #' @param subset (optional) Filter rows from the dataframe. Defaults to \code{NULL}.
 #' @param ymax (optional) Maximum lag of the dependent variable \code{y}. Defaults to 4.
 #' @param xmax (optional) Maximum lag of the explaining variable(s) \code{x}. Defaults to 4.

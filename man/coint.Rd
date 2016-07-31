@@ -4,7 +4,7 @@
 \alias{coint}
 \title{Long and Short-Run coefficients}
 \usage{
-coint(obj, type = "txt", file = NULL)
+coint(obj, type = "txt", file = NULL, caption = NULL)
 }
 \arguments{
 \item{obj}{An object of class \code{ardl}.}
@@ -12,6 +12,8 @@ coint(obj, type = "txt", file = NULL)
 \item{type}{(optional) Select results format that can be \code{c("txt","tex")}. Defaults to \code{"tex"}.}
 
 \item{file}{(optional) Filename to save results. Defaults to \code{NULL}.}
+
+\item{caption}{(optional) Caption (title) of the table. Defaults to \code{NULL}.}
 }
 \value{
 Character strings.

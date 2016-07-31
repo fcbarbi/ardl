@@ -10,7 +10,7 @@ auto.ardl(formula, data, subset = NULL, ymax = 4, xmax = 4, case = 3,
 \arguments{
 \item{formula}{Formula as in \code{ y ~ x1 + x2 | x3 } where \code{x1} and \code{x2} are tested for different lags up to \code{xmax}. Note that \code{x3} is "fixed" so it is not lagged.}
 
-\item{data}{A dataframe with the zoo time series data in the columns.}
+\item{data}{A dataframe or time referenced object with data in columns.}
 
 \item{subset}{(optional) Filter rows from the dataframe. Defaults to \code{NULL}.}
 

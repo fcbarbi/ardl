@@ -4,12 +4,10 @@
 \alias{bounds.test}
 \title{Performs PSS (2001) bounds test for I(0) and I(1) regressors.}
 \usage{
-bounds.test(obj, tables = "pss")
+bounds.test(obj)
 }
 \arguments{
 \item{obj}{An ardl object to be tested.}
-
-\item{tables}{(optional) Select the tables with critical values, can be \code{"pss"} or \code{"narayan"}. Defaults to \code{"pss"}}
 }
 \value{
 An object of class \code{ardl}.
@@ -18,7 +16,8 @@ An object of class \code{ardl}.
 Calculates the Pesaran, Shin and Smith (2001) statistics and list the critical values.
 }
 \details{
-Presents the bounds test for I(0) or I(1) regressors with critical values from PSS (2001) or Narayan (2005) paper for small samples.
+Presents the bounds test for I(0) or I(1) regressors with critical values from PSS (2001). 
+#TODO: include critical values from Narayan (2005) paper for small samples.
 }
 \examples{
 data(br_month)

@@ -10,7 +10,7 @@ ardl(formula, data, subset = NULL, ylag = 1, xlag = 1, case = 3,
 \arguments{
 \item{formula}{Formula as in \code{y ~ x1 + x2 | x3 } where \code{x1} and \code{x2} may be lagged to different orders according to the vector \code{xlag=c(1,2)}. Note that \code{x3} is fixed so it is not lagged, it is generally used for dummies.}
 
-\item{data}{A time-referenced dataframe (zoo) with the data for \code{y} and all regressors \code{x1}, \code{x2} and \code{x3}.}
+\item{data}{A dataframe or time referenced object with data in columns.}
 
 \item{subset}{(optional) Filter rows from the dataframe. Defaults to \code{NULL}.}
 
@@ -18,12 +18,12 @@ ardl(formula, data, subset = NULL, ylag = 1, xlag = 1, case = 3,
 
 \item{xlag}{(optional) Defaults to 1. Vector of the maximum lag for each of the lagging component. Must be 0 or more. Note that if omitted the regressors have lag 1.}
 
-\item{case}{(optional) Defaults to 3 (intercept + no trend). Using the same table of cases as in \cite{Pesaran2001} the options are: 
+\item{case}{(optional) Defaults to 3 (intercept + no trend). We use the same table of cases as \cite{Pesaran2001} the options are: 
 \code{case = 1} model with no intercept, no trend; 
 \code{case = 3} model with unrestricted intercept, no trend; 
 \code{case = 5} model with unrestricted intercept, unrestricted trend.}
 
-\item{quiet}{(optional) Defaults to \code{FALSE}. If set to \code{TRUE} the routine generates no output, as required when called by \code{auto.ardl()}.}
+\item{quiet}{(optional) Defaults to \code{FALSE}. If set to \code{TRUE} the routine genaerates no output, as required when called by \code{auto.ardl()}.}
 }
 \value{
 An object of class \code{ardl}.
@@ -38,8 +38,8 @@ Saves an \code{ardl} object with all results to be \code{print()}, \code{summary
  
 data(br_month)
 m1 <- ardl( mpr~cpi+reer, data=br_month )
-m2 <- ardl( mpr~cpi+reer|d_lula, data = br_month, ylag=2, xlag=1, case=5, quiet=TRUE )  
-m3 <- ardl( mpr~cpi+prod+reer|d_lula, data = br_month, ylag=2, xlag=c(1,2,2), case=1 )
+m2 <- ardl( mpr~cpi+reer|d_lula, data=br_month, ylag=2, xlag=c(1,1), case=5, quiet=TRUE )  
+m3 <- ardl( mpr~cpi+prod+reer|d_lula, data=br_month, ylag=2, xlag=c(1,2,2), case=1 )
 }
 \references{
 Pesaran, M.H. and Shin, Yongcheol (1999) An Autoregressive Distributed-Lag Modelling Approach to Cointegration Analysis. \emph{Econometrics and Economic Theory in the 20th Century}. Cambridge University Press.

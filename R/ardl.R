@@ -5,15 +5,15 @@
 #' @details Saves an \code{ardl} object with all results to be \code{print()}, \code{summary()} or \code{coint()}.
 #' 
 #' @param formula Formula as in \code{y ~ x1 + x2 | x3 } where \code{x1} and \code{x2} may be lagged to different orders according to the vector \code{xlag=c(1,2)}. Note that \code{x3} is fixed so it is not lagged, it is generally used for dummies.  
-#' @param data A time-referenced dataframe (zoo) with the data for \code{y} and all regressors \code{x1}, \code{x2} and \code{x3}. 
+#' @param data A dataframe or time referenced object with data in columns.
 #' @param subset (optional) Filter rows from the dataframe. Defaults to \code{NULL}.
-#' @param case (optional) Defaults to 3 (intercept + no trend). Using the same table of cases as in \cite{Pesaran2001} the options are: 
+#' @param case (optional) Defaults to 3 (intercept + no trend). We use the same table of cases as \cite{Pesaran2001} the options are: 
 #' \code{case = 1} model with no intercept, no trend; 
 #' \code{case = 3} model with unrestricted intercept, no trend; 
 #' \code{case = 5} model with unrestricted intercept, unrestricted trend.
 #' @param ylag (optional) Defaults to 1. Maximum lag of the dependent variable. Must be 1 or more.
 #' @param xlag (optional) Defaults to 1. Vector of the maximum lag for each of the lagging component. Must be 0 or more. Note that if omitted the regressors have lag 1.
-#' @param quiet (optional) Defaults to \code{FALSE}. If set to \code{TRUE} the routine generates no output, as required when called by \code{auto.ardl()}.
+#' @param quiet (optional) Defaults to \code{FALSE}. If set to \code{TRUE} the routine genaerates no output, as required when called by \code{auto.ardl()}.
 #' @return An object of class \code{ardl}.
 #' 
 #' @export ardl 
@@ -39,18 +39,43 @@
 #'  
 #' data(br_month)
 #' m1 <- ardl( mpr~cpi+reer, data=br_month )
-#' m2 <- ardl( mpr~cpi+reer|d_lula, data = br_month, ylag=2, xlag=1, case=5, quiet=TRUE )  
-#' m3 <- ardl( mpr~cpi+prod+reer|d_lula, data = br_month, ylag=2, xlag=c(1,2,2), case=1 )
+#' m2 <- ardl( mpr~cpi+reer|d_lula, data=br_month, ylag=2, xlag=c(1,1), case=5, quiet=TRUE )  
+#' m3 <- ardl( mpr~cpi+prod+reer|d_lula, data=br_month, ylag=2, xlag=c(1,2,2), case=1 )
 #
 ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALSE ){  
   #DEBUG <- TRUE  
   
+  # if parameters are passed by position, name them 
+  #ardl.call <- match.call(expand.dots = FALSE)
+  #m <- match(c("formula", "data", "subset", "ylag", "xlag", "case", "quiet"), names(ardl.model), 0)
+  #print(m)
+  #ardl.call[]
+  
   ## validations
-  if (missing(data)) 
-      stop("data must be supplied in zoo (time-referenced) format")
-    
-  for (i in 1:dim(data)[2]) 
-    if (!inherits(data[,i],"zoo")) stop("data must be time-referenced with class zoo")
+  if (!inherits(formula,"formula")) stop("First argument must be a formula (not a string...)")
+
+  if (missing(data)) stop("Data must be supplied")
+  if (!is.data.frame(data) && !is.matrix(data)) stop("Data must be data frame or matrix.")
+
+  #if (!inherits(data,"zoo") && !inherits(data,"ts")) data <- ts( data, freq=1 )
+  if (inherits(data,"zoo") || inherits(data,"ts")) {
+    data_start <- start(data[, 1])     
+    data_freq  <- frequency(data[, 1])
+  } else {
+    data_start <- data_freq <- 1
+  }
+  #print(data_start)
+  #print(data_freq)
+  
+  if (quiet==FALSE) cat("\nDataset adjustment to the common sample of all regressors:\n")
+  if (quiet==FALSE) {
+    x <- data[,1] 
+    cat( "Original dataset from ", zoo::index2char(zoo::index(x)[1], frequency(x)),
+         "to", zoo::index2char(zoo::index(x)[length(x)], frequency(x)),"\n" )
+  }
+  
+  # convert to df so diagnostic functions work better 
+  if (!is.data.frame(data)) data <- as.data.frame(data); #print("converted to data.frame") }  
   
   if (!is.numeric(ylag)|!is.numeric(xlag)) stop("ylag and xlag must be numeric")
   if (ylag<0) stop("ylag must be 0 or more") else ylag <- floor(ylag)
@@ -59,8 +84,6 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
   
   if (is.na(match( case, c(1,3,5) ))) stop("case must be 1, 3 or 5")
       
-  if (!inherits(formula,"formula")) stop("First argument must be a formula (not a string...)")
-  
   ## This function has 3 parts: build the formula, calculate LR coeffs, estimate SR coeff  
   ##
   ## ##################################################################
@@ -72,7 +95,7 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
   ## To test ARDL with 1 lag, intercept and trend for "y ~ x2+x3|x1"
   ## the formula is rewritten as "y ~ +1+trend(y) + L(y)+x2+L(x2)+x3+L(x3) + x1"
   
-  atoms <- formulaExplode( formula )
+  atoms <- ardl:::formulaExplode( formula )
   lhs           <- atoms[[1]]
   core_split    <- atoms[[2]]
   suffix_split  <- atoms[[3]]
@@ -82,28 +105,50 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
 
   if (K<1) stop("At least one regressor X must be supplied in y~X ")
   
-  if (quiet==FALSE) cat("\nDataset adjustment to the common sample of all regressors:\n")
-  if (quiet==FALSE) {
-    x <- data[,1] 
-    cat("Original dataset from ",zoo::index2char(zoo::index(x)[1], frequency(x)),"to", 
-        zoo::index2char(zoo::index(x)[length(x)], frequency(x)),"\n" )
-  }
-
   ## select only the necessary columns to build a new dataset 
-  data_selection <- data[,c(lhs,core_split,suffix_split)]
+  columns <- c(lhs,core_split,suffix_split)
+  #print(columns)
+  
+  ## check that all regressors are in the dataset 
+  badcol <-NULL
+  for (cc in columns) 
+    if (!(cc %in% colnames(data))) badcol <- c(badcol,cc)
+  if (length(badcol)>0)
+   stop( cat("The column(s): ",badcol," was(were) not found in the dataset. Please check before proceeding.") )
+  
+  ## restrict dataset to regressors required by formula 
+  data_s <- data[,columns] # selected data 
+  
+  ## check if selected data is available (not all NA), is numeric and varies enough to be usable   
+  exclude <- NULL 
+  for (i in 1:dim(data_s)[2]) 
+    if (all(is.na(data_s[,i]))) {
+      cat("No data available in column",colnames(data_s)[i],"(all NA) \n" )
+      exclude <- c(exclude,i)
+    } else if (!is.numeric(data_s[,i])) {
+      cat("Data in column",colnames(data_s)[i],"is not numeric\n")
+      exclude <- c(exclude,i)
+    } else if (var(data_s[,i],na.rm = TRUE)<1e-6) {  
+      cat("Data in column",colnames(data_s)[i],"seems to be constant\n")
+      exclude <- c(exclude,i)
+    }  
+  if (length(exclude)>1) 
+    stop(paste("Some column(s) in data was(were) not acceptable. Adjust dataset or formula before proceeding."))
+  
   ## adjust dataset to eliminate NA at the begining and/or end of the sample 
-  data <- zoo::na.trim(data_selection)  
-  if (any(is.na(data))) warning("dataset still contains NA's...") 
-  ## data <- AdjustDataset( data, lag=max(ymax,xmax), lead=0 )
+  data_s <- zoo::zooreg( data_s, start=data_start, frequency=data_freq )
+  data <- zoo::na.trim(data_s)  
+  if (any(is.na(data))) 
+    warning("dataset still contains NA's: consider doing some inputation before proceeding.") 
+  ## data <- AdjustDataset( data, lag=max(ymax,xmax), lead=0 ) # compare models with the same nbr of obs 
   
   if (quiet==FALSE) {
     x <- data[,1] 
     cat("Adjusted dataset from ",zoo::index2char(zoo::index(x)[1], frequency(x)),"to",
         zoo::index2char(zoo::index(x)[length(x)], frequency(x)),"\n" )
   }
+  #print(class(data))
   
-  data_start <- start(data[, 1])     
-  data_freq  <- frequency(data[, 1])
   for (name in colnames(data)) assign( name, data[,name] ) 
   T <- length(get(core_split[1])) # n.obs in time
 
@@ -155,7 +200,8 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
    coeff_map <- c(coeff_map,i)
    if (xlag[i]>0)
     for (j in 1:xlag[i]) {
-      core <- paste0(core,"+L(",core_split[i],",",j,")")
+      if (j==1) core <- paste0(core,"+")
+      core <- paste0(core,"L(",core_split[i],",",j,")")
       if (j<xlag[i]) core <- paste0(core,"+")
       coeff_map <- c(coeff_map,i)
     }
@@ -169,12 +215,19 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
     if (i<KX) suffix <- paste0(suffix,"+")
     coeff_map <- c(coeff_map,i+K)
   }
-
+  #print("coeff_map");print(coeff_map)
+  
   if (!is.null(suffix)){
     fm <- paste(lhs,"~",prefix,"+",core,"+",suffix)
   } else { 
     fm <- paste(lhs,"~",prefix,"+",core)
   }
+  #print(fm)
+
+  # force data into ts because dynlm() works best with it 
+  if (!inherits(data,"ts")) data <- as.ts( data, start=data_start, frequency=data_freq ); #print("converted to ts") }
+  #write.csv(data,file="230_data.csv")
+  
   res <- dynlm::dynlm( formula(fm), data=data, subset=subset )
 
   res$case <- case 
@@ -184,7 +237,10 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
   res$ylag <- ylag 
   res$xlag <- xlag 
   res$data <- data 
-
+  x <- data[,1]
+  res$start_adj <- zoo::index2char(zoo::index(x)[1], frequency(x))
+  res$end_adj   <- zoo::index2char(zoo::index(x)[length(x)], frequency(x))
+  
   ## ##################################################################
   ## part 2: estimate LR coeffs
   ## generate Long Run coefficient estimates and SE using delta
@@ -206,23 +262,32 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
       coeff_lr[i] <- temp/(1-theta) 
     }
   
+  badcoeff <- NULL
+  if (any(is.na(coeff_lr))) badcoeff <- which(is.na(coeff_lr))
+  if (length(badcoeff)>0) {
+    #print(colnames(coeff_lr[badcoeff]))  # paste("Could not estimate LR coefficients of",coeff_lr[badcoeff]))
+    stop("Some Long Run coefficients could not be estimated. Check model before proceeding.")
+  }
+  
   attr(coeff_lr,"names") <- c(core_split,suffix_split)
   res$coeff_lr <- coeff_lr
+  #print(coeff_lr)
 
   coeff_lr_sd <- rep(NA,length(coeff_lr))  
 
   ## Delta method (see eq.2.20 in Pesaran and Shin (1999))
   ## do not include Intercept or Trend in the LR vector of coefficients 
-  demean <- function(x)   { x-mean(x) }    
+  removeNA <- TRUE  # should it be set by the user?
+  demean <- function(x)   { x-mean(x, na.rm = removeNA) }    
   y <- get(lhs)
   sigma_u <- var(residuals(res)) 
   #if (DEBUG) print("sigma_u");print(sigma_u)
   for (i in 1:(K+KX)) { 
     x <- get(attr(coeff_lr, "names")[i])
-    DT <- sum(demean(x)^2) * sum(demean(y)^2) - sum(demean(y)*demean(x))^2
+    DT <- sum(demean(x)^2, na.rm = removeNA) * sum(demean(y)^2) - sum(demean(y)*demean(x), na.rm = removeNA)^2
     temp1 <- (sigma_u/(1 - theta)^2) * 1/DT
-    temp2 <- -sum(demean(x) * demean(y))
-    temp2 <- matrix( c( sum(demean(y)^2), temp2, temp2, sum(demean(x)^2) ), ncol = 2 )
+    temp2 <- -sum(demean(x) * demean(y), na.rm = removeNA)
+    temp2 <- matrix( c( sum(demean(y)^2, na.rm = removeNA), temp2, temp2, sum(demean(x)^2, na.rm = removeNA) ), ncol = 2 )
     temp3 <- matrix( c(1, coeff_lr[i]), ncol = 2) %*% temp2 %*% matrix(c(1, coeff_lr[i]), ncol = 1 )
     coeff_lr_sd[i] <- sqrt( temp1*temp3 )
   }  
@@ -237,9 +302,16 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
   if (KX>0) for (i in 1:KX) X[,i+K] <- get(suffix_split[i])
 
   coeff_lr <- matrix( coeff_lr, ncol=1 )  
+  #print("lhs");print(lhs)
+  #print("coeff_lr");print(coeff_lr)
+  #print("X");print(X)
   coint <- get(lhs) - X %*% coeff_lr  ## control for the LR relation   
-  coint <- zoo::zooreg( coint, start=data_start, freq=data_freq ) 
-  res$coint <- coint 
+  #print(coint)
+  coint <- ts( coint, start=data_start, freq=data_freq ) 
+  res$coint <- coint
+  colnames <- colnames(data)
+  data <- cbind(data,coint)
+  colnames(data) <- c(colnames,"coint")
   
   ## build list of regressors to estimate the short term coefficients 
   core_str <- ""
@@ -253,6 +325,8 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
   } else {
     fm_sr <- paste0("d(",lhs,") ~ L(d(",lhs,")) +",core_str," + L(coint)")
   }  
+  #print(fm_sr)
+  #write.csv(data,file="324_data.csv")
   res_sr <- dynlm::dynlm( formula(fm_sr), data=data, subset=subset )
 
   res$coeff_sr <- coefficients(res_sr)  # copies data and attr "names"
@@ -270,7 +344,7 @@ ardl <- function( formula, data, subset=NULL, ylag=1, xlag=1, case=3, quiet=FALS
   res$sr_var_residuals <- var(residuals(res_sr))
   
   class(res) <- c("ardl",class(res))  
-  if (quiet==FALSE) print(res) 
+  #if (quiet==FALSE) print(res) 
   return(res) 
 }
 

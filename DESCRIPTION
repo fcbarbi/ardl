@@ -1,6 +1,6 @@
 Package: ardl
-Version: 0.0.4
-Date: 2016-06-07
+Version: 0.0.6
+Date: 2016-07-31
 Title: Auto Regressive Distributed Lag time series model
 Authors@R: person("Fernando", "Barbi", email = "fcbarbi@gmail.com", role = c("aut", "cre"))
 Author: Fernando Barbi [aut,cre]

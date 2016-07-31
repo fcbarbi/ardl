@@ -2,9 +2,13 @@
 #' @name bounds.test
 #' @title Performs PSS (2001) bounds test for I(0) and I(1) regressors.
 #' @description Calculates the Pesaran, Shin and Smith (2001) statistics and list the critical values.
-#' @details Presents the bounds test for I(0) or I(1) regressors with critical values from PSS (2001) or Narayan (2005) paper for small samples. 
+#' @details Presents the bounds test for I(0) or I(1) regressors with critical values from PSS (2001). 
+#' #TODO: include critical values from Narayan (2005) paper for small samples. 
 #' @param obj An ardl object to be tested.
-#' @param tables (optional) Select the tables with critical values, can be \code{"pss"} or \code{"narayan"}. Defaults to \code{"pss"}
+# @param tables (optional) Select the tables with critical values, can be \code{"pss"} or \code{"narayan"}. Defaults to \code{"pss"}
+# @param type (optional) Select results format that can be \code{c("txt","tex")}. Defaults to \code{"tex"}. 
+# @param file (optional) Filename to save results. Defaults to \code{NULL}.
+# @param append (optional) If \code{TRUE} appends to the file. Defaults to \code{FALSE}.
 #' @return An object of class \code{ardl}.
 #' @export
 # @importFrom lmtest waldtest
@@ -23,9 +27,12 @@
 #' 
 
 ## --------------------------------------------------------
-bounds.test <- function( obj, tables="pss" ) {
+bounds.test <- function( obj ) {  # , tables="pss", append=FALSE, file=NULL ){
   
 #DEBUG <- TRUE  
+  tables="pss" 
+  append=FALSE
+  file=NULL
   
   val <- NULL		
   val <- rbind(val,	c(2.44,3.28,3.15,4.11,3.88,4.92,4.81,6.02)	)
@@ -116,13 +123,16 @@ case_desc <- switch(obj$case, "no intercept, no trend",
                               "unrestricted intercept, restricted trend (not supported)",
                               "unrestricted intercept, unrestricted trend")
 
-# test sample size and recommend narayan if less than 80 obs 
+# TODO: test sample size, recommend narayan if less than 80 obs ?
 
-cat("\nBounds Test\n")
+if (!is.null(file) && is.character(file)) sink(file)
+
+cat("\nBounds Test:\n")
 cat(deparse(formula(obj)),"\n")
 cat("\nPSS case",obj$case," (",case_desc,")")
 cat("\nRegressors (K)",K," \n\n")
 
+## document the null hypothesis or NO LR relation 
 cat("d(y_t) = alpha + pi (y_t-1,x_t)' + phi (d(y_t),d(x_t))' + epsilon_t \n")
 cat("Null hypothesis (H0): No long-run relation exist, ie H0:pi=0\n\n")
 
@@ -149,13 +159,15 @@ cat(sprintf("   1%%   %3.2f  %3.2f\n", table[K,"99.0"],table[K,"99.1"] ))
 
 ## compare models with(m1) and without(m0) regressores in levels with the Waldtest 
 
-lhs <- obj$lhs
-core_split <- obj$variableTerms
+core_split   <- obj$variableTerms
 suffix_split <- obj$fixedTerms
+
+lhs  <- obj$lhs
 ylag <- obj$ylag
 xlag <- obj$xlag
 data <- obj$data 
 case <- obj$case
+
 K  <- length(core_split)
 KX <- length(suffix_split)
 
@@ -169,14 +181,14 @@ if (case==5) fm0 <- paste0( "d(",lhs,") ~ +1+trend(",lhs,")+L(d(",lhs,")) ")
 fm1 <- fm0 
 
 for (i in 1:K)  fm0 <- paste0(fm0,"+d(",core_split[i],")")
-for (i in 1:KX) fm0 <- paste0(fm0,"+",suffix_split[i],"")
+if (KX>0) for (i in 1:KX) fm0 <- paste0(fm0,"+",suffix_split[i],"")
 #print(fm0)
 
 # fm1 <- d(mpr) ~ +1 + L(d(mpr)) + L(mpr, 1) + cpi+ner+prod+ d(cpi)+d(ner)+d(prod) + d_lula
 for (i in 1:1)  fm1 <- paste0(fm1,"+L(",lhs,",",i,")") # 1:ylag
 for (i in 1:K)  fm1 <- paste0(fm1,"+",core_split[i],"")
 for (i in 1:K)  fm1 <- paste0(fm1,"+d(",core_split[i],")")
-for (i in 1:KX) fm1 <- paste0(fm1,"+",suffix_split[i],"")
+if (KX>0) for (i in 1:KX) fm1 <- paste0(fm1,"+",suffix_split[i],"")
 #print(fm1)
 
 cat("\nWald test to compare the models:\n")
@@ -190,22 +202,20 @@ cat("\nF statistic ",Fstat,"\n\n")  # espero algo entre 4 e 5
 
 ## diagnostic 
 diagn <- "Existence of a Long Term relation is"
-if (Fstat>table[K,"95.1"]) {
- cat(diagn,"not rejected at 5%") # diagnostic 
-} else {
-  if (Fstat<table[K,"95.0"]) {
-   cat(diagn,"rejected at 5% (even assumming all regressors I(0))") 
-  } else { 
-    cat(diagn,"rejected at 5% with I(1) regressors but not with I(0) regressors ") 
-    }
-}  
+if (Fstat>table[K,"95.1"]) 
+  cat(diagn,"not rejected at 5%") 
+if (Fstat<table[K,"95.0"]) 
+  cat(diagn,"rejected at 5% (even assumming all regressors I(0))") 
+if (Fstat<=table[K,"95.1"] && Fstat>=table[K,"95.0"]) 
+  cat(diagn,"rejected at 5% with I(1) regressors but not with I(0) regressors ") 
 
-cat("\n\n Long-term coefficients:\n")   #TODO improve layout 
-print(obj$coeff_lr[1:K])
+#cat("\n\n Long-term coefficients:\n")   #TODO improve layout 
+#print(obj$coeff_lr[1:K])
 #print(obj$coeff_lr_sd)
-
 #cat("AR test:")
-  
+
+if (!is.null(file) && is.character(file)) sink()
+
 }
 
 
