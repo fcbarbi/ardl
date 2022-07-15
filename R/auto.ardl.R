@@ -53,7 +53,7 @@ auto.ardl <- function( formula, data, subset=NULL, ymax=4, xmax=4, case=3, ic="b
   T <- dim(data)[1]
 
   if (ymax<0 || ymax>=T) stop('Check ymax: it should be between 1 and nbr-1 observations')
-  if (xmax<0 || xmax>=T) stop('Check xmax: it should be between 1 and nbr-1 observations')
+  if (any(xmax < 0 | xmax >= T)) stop('Check xmax: it should be between 1 and nbr-1 observations')
   
   if (is.na(match( case, c(1,3,5) ))) stop("case must be 1, 3 or 5")
 
